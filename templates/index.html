@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"/>
+<meta name="theme-color" content="#080d1a"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<title>RailFast</title>
+<link rel="manifest" href="/static/manifest.json"/>
+<link rel="apple-touch-icon" href="/static/icon-192.png"/>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=DM+Mono:wght@400;500&family=Noto+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<style>
+:root{
+  --bg:#080d1a;--bg2:#0e1526;--bg3:#151e35;--card:#111828;
+  --border:#1e2d4a;--border2:#253550;
+  --accent:#f97316;--green:#22c55e;--red:#ef4444;--yellow:#eab308;--blue:#60a5fa;
+  --text:#e8eaf0;--text2:#8892a4;--text3:#5a6478;
+  --safe-top:env(safe-area-inset-top,0px);--safe-bot:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;background:var(--bg);font-family:'Noto Sans',sans-serif;color:var(--text)}
+
+/* TOPBAR */
+.topbar{padding:calc(var(--safe-top) + 10px) 16px 10px;background:var(--bg);
+  display:flex;align-items:center;justify-content:space-between;
+  border-bottom:1px solid var(--border);flex-shrink:0}
+.logo{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:20px;
+  letter-spacing:2px;color:var(--accent);display:flex;align-items:center;gap:7px}
+.logo-icon{width:26px;height:26px;background:var(--accent);border-radius:6px;
+  display:flex;align-items:center;justify-content:center;font-size:13px}
+.clock{font-family:'DM Mono',monospace;font-size:11px;color:var(--text3);
+  background:var(--bg3);border:1px solid var(--border);padding:4px 9px;border-radius:20px}
+.clock span{color:var(--accent)}
+
+/* STATUS BAR */
+.statusbar{padding:7px 16px;background:var(--bg2);border-bottom:1px solid var(--border);
+  font-size:11px;display:flex;align-items:center;gap:8px;flex-shrink:0}
+.status-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.dot-idle{background:var(--text3)}
+.dot-running{background:var(--green);box-shadow:0 0 6px var(--green);animation:blink 1s infinite}
+.dot-sched{background:var(--yellow);box-shadow:0 0 6px var(--yellow)}
+.dot-error{background:var(--red)}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* TABS */
+.tabs{display:flex;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0}
+.tab{flex:1;padding:10px 0;font-family:'Rajdhani',sans-serif;font-weight:600;
+  font-size:12px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);
+  border:none;background:none;cursor:pointer;border-bottom:2px solid transparent}
+.tab.on{color:var(--accent);border-bottom-color:var(--accent)}
+
+/* SCROLL */
+.scroll{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;
+  padding-bottom:calc(var(--safe-bot) + 76px)}
+.page{display:none}.page.on{display:block}
+
+/* SECTIONS */
+.sec{margin:12px 12px 0;background:var(--card);border:1px solid var(--border);border-radius:13px;overflow:hidden}
+.sec-hd{padding:10px 14px;background:var(--bg3);border-bottom:1px solid var(--border);
+  font-family:'Rajdhani',sans-serif;font-weight:600;font-size:11px;letter-spacing:2px;
+  text-transform:uppercase;color:var(--text2);display:flex;align-items:center;gap:7px}
+.hd-dot{width:5px;height:5px;border-radius:50%;background:var(--accent);box-shadow:0 0 5px var(--accent)}
+
+/* FIELD ROWS */
+.frow{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:11px}
+.frow:last-child{border-bottom:none}
+.ficon{font-size:15px;width:18px;text-align:center;flex-shrink:0;color:var(--text3)}
+.fwrap{flex:1;min-width:0}
+.flabel{font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);
+  margin-bottom:2px;font-family:'Rajdhani',sans-serif;font-weight:600}
+.finput{width:100%;background:none;border:none;outline:none;color:var(--text);
+  font-size:15px;font-family:'Noto Sans',sans-serif;padding:0}
+.finput::placeholder{color:var(--text3);font-size:13px}
+.finput[type=date]::-webkit-calendar-picker-indicator{filter:invert(.4)}
+.finput option{background:var(--bg2)}
+.fbadge{font-family:'DM Mono',monospace;font-size:10px;padding:3px 7px;border-radius:20px;flex-shrink:0;
+  background:rgba(249,115,22,.12);color:var(--accent);border:1px solid rgba(249,115,22,.25)}
+
+/* STATION SWAP */
+.srow{display:flex;align-items:center;padding:0 14px}
+.sbox{flex:1;padding:13px 0}
+.slabel{font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);
+  margin-bottom:3px;font-family:'Rajdhani',sans-serif;font-weight:600}
+.sinput{width:100%;background:none;border:none;outline:none;color:var(--text);
+  font-size:17px;font-weight:600;font-family:'Rajdhani',sans-serif;letter-spacing:.5px}
+.sinput::placeholder{color:var(--text3);font-size:14px;font-weight:500}
+.swapbtn{width:36px;height:36px;border-radius:50%;background:var(--bg3);
+  border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;
+  font-size:15px;cursor:pointer;flex-shrink:0;transition:transform .3s,background .2s;margin:0 5px}
+.swapbtn:active{transform:rotate(180deg);background:var(--border2)}
+
+/* CLASS CHIPS */
+.chips{display:flex;flex-wrap:wrap;gap:7px;padding:10px 14px 12px}
+.chip{padding:6px 13px;border-radius:8px;border:1px solid var(--border2);background:var(--bg3);
+  font-family:'DM Mono',monospace;font-size:11px;color:var(--text2);cursor:pointer;transition:all .2s}
+.chip.on{border-color:var(--accent);background:rgba(249,115,22,.1);color:var(--accent)}
+
+/* TOGGLE */
+.trow{padding:12px 14px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;gap:10px}
+.tinfo .flabel{margin-bottom:2px}
+.tinfo p{font-size:11px;color:var(--text3)}
+.tog{width:42px;height:23px;border-radius:12px;background:var(--bg3);
+  border:1px solid var(--border2);position:relative;cursor:pointer;flex-shrink:0;transition:background .2s}
+.tog.on{background:var(--accent);border-color:var(--accent)}
+.tog-thumb{width:17px;height:17px;border-radius:50%;background:#fff;position:absolute;
+  top:2px;left:2px;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.tog.on .tog-thumb{transform:translateX(19px)}
+
+/* PASSENGER CARD */
+.pcard{margin:10px 12px 0;background:var(--card);border:1px solid var(--border);border-radius:13px;overflow:hidden}
+.phd{padding:9px 14px;background:var(--bg3);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between}
+.ptitle{font-family:'Rajdhani',sans-serif;font-weight:600;font-size:12px;letter-spacing:1.5px;color:var(--text2);text-transform:uppercase}
+.prem{width:24px;height:24px;border-radius:50%;background:rgba(239,68,68,.12);
+  border:1px solid rgba(239,68,68,.3);color:var(--red);font-size:13px;
+  display:flex;align-items:center;justify-content:center;cursor:pointer}
+.pgrid{display:grid;grid-template-columns:1fr 1fr}
+.pgrid .frow{border-right:1px solid var(--border)}
+.pgrid .frow:nth-child(even){border-right:none}
+
+/* ADD PAX */
+.addpax{margin:8px 12px;padding:12px;border-radius:11px;border:1px dashed var(--border2);
+  background:none;color:var(--text3);font-family:'Rajdhani',sans-serif;font-weight:600;
+  font-size:12px;letter-spacing:1.5px;text-transform:uppercase;width:calc(100% - 24px);
+  cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px}
+.addpax:active{border-color:var(--accent);color:var(--accent)}
+
+/* UPI */
+.upi-val{font-family:'DM Mono',monospace;font-size:14px;color:var(--green)}
+.upi-ok{font-size:10px;color:var(--green);margin-top:2px}
+
+/* COUNTDOWN */
+.cdbox{margin:12px 12px 0;padding:16px 14px;background:var(--card);
+  border:1px solid var(--border);border-radius:13px;text-align:center}
+.cdlabel{font-family:'Rajdhani',sans-serif;font-size:10px;letter-spacing:2px;
+  text-transform:uppercase;color:var(--text3);margin-bottom:8px}
+.cddig{font-family:'DM Mono',monospace;font-size:32px;color:var(--accent);
+  letter-spacing:3px;text-shadow:0 0 18px rgba(249,115,22,.35)}
+.cdsub{font-size:10px;color:var(--text3);margin-top:5px}
+
+/* LOG FEED */
+.logfeed{margin:12px 12px 0;background:var(--card);border:1px solid var(--border);
+  border-radius:13px;overflow:hidden}
+.loghd{padding:9px 14px;background:var(--bg3);border-bottom:1px solid var(--border);
+  font-family:'Rajdhani',sans-serif;font-weight:600;font-size:11px;letter-spacing:2px;
+  color:var(--text3);text-transform:uppercase;display:flex;align-items:center;justify-content:space-between}
+.livdot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 5px var(--green);animation:blink 1.5s infinite}
+.logscroll{height:160px;overflow-y:auto;padding:6px 0;-webkit-overflow-scrolling:touch}
+.logline{padding:4px 14px;font-family:'DM Mono',monospace;font-size:10px;color:var(--text2);
+  display:flex;gap:8px;align-items:flex-start;line-height:1.5}
+.logline .lt{color:var(--text3);flex-shrink:0}
+.logline.ok .lm{color:var(--green)}
+.logline.error .lm{color:var(--red)}
+.logline.warn .lm{color:var(--yellow)}
+
+/* BOTTOM BAR */
+.botbar{position:fixed;bottom:0;left:0;right:0;
+  padding:10px 12px calc(var(--safe-bot) + 10px);
+  background:linear-gradient(to top,var(--bg) 85%,transparent);z-index:20;display:flex;gap:9px}
+.btn-sched{flex:1;padding:15px;border-radius:13px;background:var(--bg3);
+  border:1px solid var(--border2);color:var(--text);font-family:'Rajdhani',sans-serif;
+  font-weight:700;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer}
+.btn-sched.active-job{border-color:var(--yellow);color:var(--yellow)}
+.btn-book{flex:2;padding:15px;border-radius:13px;
+  background:linear-gradient(135deg,var(--accent),#ea580c);border:none;color:#fff;
+  font-family:'Rajdhani',sans-serif;font-weight:700;font-size:15px;letter-spacing:2px;
+  text-transform:uppercase;cursor:pointer;box-shadow:0 4px 18px rgba(249,115,22,.3);
+  display:flex;align-items:center;justify-content:center;gap:7px;transition:all .15s}
+.btn-book:active{transform:scale(.97)}
+.btn-book:disabled{background:#1e2a3a;box-shadow:none;color:var(--text3)}
+
+/* MODAL */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;
+  display:flex;align-items:flex-end;backdrop-filter:blur(4px);
+  opacity:0;pointer-events:none;transition:opacity .3s}
+.modal.open{opacity:1;pointer-events:all}
+.msheet{width:100%;background:var(--bg2);border-radius:18px 18px 0 0;
+  border-top:1px solid var(--border2);padding:0 0 calc(var(--safe-bot)+14px);
+  transform:translateY(100%);transition:transform .35s cubic-bezier(.32,0,.67,0)}
+.modal.open .msheet{transform:translateY(0)}
+.mhandle{width:34px;height:4px;border-radius:2px;background:var(--border2);margin:11px auto 0}
+.mtitle{padding:14px 18px 11px;font-family:'Rajdhani',sans-serif;font-weight:700;
+  font-size:17px;letter-spacing:.5px;border-bottom:1px solid var(--border)}
+.mbody{padding:14px 18px}
+.mbody p{font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:10px}
+.mbody strong{color:var(--accent)}
+.mtime{font-family:'DM Mono',monospace;font-size:17px;color:var(--text);
+  text-align:center;padding:14px;background:var(--card);border-radius:10px;
+  border:1px solid var(--border2);margin-bottom:14px}
+.btn-ok{width:100%;padding:15px;border-radius:11px;background:var(--accent);
+  border:none;color:#fff;font-family:'Rajdhani',sans-serif;font-weight:700;
+  font-size:15px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;margin-bottom:8px}
+.btn-no{width:100%;padding:13px;border-radius:11px;background:none;
+  border:1px solid var(--border2);color:var(--text2);font-family:'Rajdhani',sans-serif;
+  font-weight:600;font-size:13px;letter-spacing:1px;cursor:pointer}
+
+/* RESULT CARD */
+.result-card{margin:12px 12px 0;padding:16px 14px;border-radius:13px;
+  border:1px solid;animation:slideUp .3s ease}
+.result-card.ok{background:rgba(34,197,94,.08);border-color:rgba(34,197,94,.3)}
+.result-card.fail{background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.3)}
+.result-card.warn{background:rgba(234,179,8,.08);border-color:rgba(234,179,8,.3)}
+.result-title{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:14px;
+  letter-spacing:.5px;margin-bottom:6px}
+.result-card.ok .result-title{color:var(--green)}
+.result-card.fail .result-title{color:var(--red)}
+.result-card.warn .result-title{color:var(--yellow)}
+.result-pnr{font-family:'DM Mono',monospace;font-size:20px;color:var(--text);
+  letter-spacing:3px;margin-bottom:4px}
+.result-msg{font-size:12px;color:var(--text2);line-height:1.5}
+
+/* SCHED INFO BOX */
+.sched-info{margin:12px 12px 0;padding:13px 14px;
+  background:rgba(249,115,22,.07);border:1px solid rgba(249,115,22,.2);border-radius:12px;
+  display:flex;gap:11px;align-items:flex-start}
+.sched-info h4{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:13px;
+  letter-spacing:.5px;color:var(--accent);margin-bottom:3px}
+.sched-info p{font-size:11px;color:var(--text2);line-height:1.5}
+.sched-info strong{color:var(--text)}
+
+/* HISTORY CARD */
+.hcard{margin:10px 12px 0;background:var(--card);border:1px solid var(--border);
+  border-radius:12px;overflow:hidden}
+.hcard-top{padding:11px 14px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between}
+.hroute{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:14px;letter-spacing:.5px}
+.hstatus{font-family:'DM Mono',monospace;font-size:9px;padding:2px 7px;border-radius:20px}
+.hstatus.ok{background:rgba(34,197,94,.12);color:var(--green);border:1px solid rgba(34,197,94,.25)}
+.hstatus.fail{background:rgba(239,68,68,.12);color:var(--red);border:1px solid rgba(239,68,68,.25)}
+.hcard-body{padding:9px 14px;font-family:'DM Mono',monospace;font-size:10px;color:var(--text3);line-height:1.8}
+
+@keyframes slideUp{from{transform:translateY(16px);opacity:0}to{transform:translateY(0);opacity:1}}
+.sec,.pcard,.cdbox,.logfeed,.sched-info{animation:slideUp .3s ease both}
+</style>
+</head>
+<body style="display:flex;flex-direction:column;height:100%">
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="logo"><div class="logo-icon">🚄</div>RAILFAST</div>
+  <div class="clock">IST <span id="clk">--:--:--</span></div>
+</div>
+
+<!-- STATUS BAR -->
+<div class="statusbar">
+  <div class="status-dot dot-idle" id="statusDot"></div>
+  <span id="statusText" style="color:var(--text2)">Ready</span>
+</div>
+
+<!-- TABS -->
+<div class="tabs">
+  <button class="tab on" onclick="showTab('book')">⚡ Book</button>
+  <button class="tab" onclick="showTab('schedule')">🕙 Schedule</button>
+  <button class="tab" onclick="showTab('logs')">📡 Logs</button>
+  <button class="tab" onclick="showTab('history')">📋 History</button>
+</div>
+
+<div class="scroll">
+
+  <!-- ══ BOOK TAB ══ -->
+  <div class="page on" id="tab-book">
+
+    <div id="resultArea"></div>
+
+    <div class="sec">
+      <div class="sec-hd"><span class="hd-dot"></span>JOURNEY</div>
+      <div class="srow">
+        <div class="sbox">
+          <div class="slabel">FROM</div>
+          <input class="sinput" id="fromStation" placeholder="NDLS" maxlength="5" oninput="this.value=this.value.toUpperCase()"/>
+        </div>
+        <button class="swapbtn" onclick="swap()">⇄</button>
+        <div class="sbox" style="text-align:right">
+          <div class="slabel" style="text-align:right">TO</div>
+          <input class="sinput" id="toStation" placeholder="BCT" maxlength="5" style="text-align:right" oninput="this.value=this.value.toUpperCase()"/>
+        </div>
+      </div>
+      <div style="height:1px;background:var(--border)"></div>
+      <div class="frow">
+        <span class="ficon">📅</span>
+        <div class="fwrap"><div class="flabel">JOURNEY DATE</div>
+          <input class="finput" type="date" id="journeyDate"/></div>
+      </div>
+      <div class="frow">
+        <span class="ficon">🚂</span>
+        <div class="fwrap"><div class="flabel">TRAIN NUMBER</div>
+          <input class="finput" id="trainNo" placeholder="12951" maxlength="5" inputmode="numeric"
+            style="font-family:'DM Mono',monospace;letter-spacing:2px"/></div>
+        <span class="fbadge">TATKAL</span>
+      </div>
+      <div style="border-top:1px solid var(--border);padding:9px 14px 4px">
+        <div class="flabel" style="margin-bottom:7px">CLASS</div>
+        <div class="chips" style="padding:0 0 10px" id="classChips">
+          <div class="chip" onclick="cls(this,'1A')">1A</div>
+          <div class="chip" onclick="cls(this,'2A')">2A</div>
+          <div class="chip on" onclick="cls(this,'3A')">3A</div>
+          <div class="chip" onclick="cls(this,'3E')">3E</div>
+          <div class="chip" onclick="cls(this,'SL')">SL</div>
+          <div class="chip" onclick="cls(this,'CC')">CC</div>
+          <div class="chip" onclick="cls(this,'2S')">2S</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="paxArea"></div>
+    <button class="addpax" onclick="addPax()">＋ ADD PASSENGER</button>
+
+    <div class="sec">
+      <div class="sec-hd"><span class="hd-dot"></span>IRCTC LOGIN</div>
+      <div class="frow">
+        <span class="ficon">👤</span>
+        <div class="fwrap"><div class="flabel">USERNAME</div>
+          <input class="finput" id="irctcUser" placeholder="IRCTC username" autocomplete="username"/></div>
+      </div>
+      <div class="frow">
+        <span class="ficon">🔒</span>
+        <div class="fwrap"><div class="flabel">PASSWORD</div>
+          <input class="finput" id="irctcPass" type="password" placeholder="••••••••" autocomplete="current-password"/></div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-hd"><span class="hd-dot"></span>PAYMENT — UPI</div>
+      <div class="frow">
+        <span class="ficon">💳</span>
+        <div class="fwrap"><div class="flabel">UPI ID</div>
+          <div class="upi-val" id="upiVal">Tap EDIT to add</div>
+          <div class="upi-ok">✓ Auto-selected on payment page</div>
+        </div>
+        <button onclick="openUpiModal()" style="background:none;border:1px solid var(--border2);
+          color:var(--text2);border-radius:7px;padding:5px 10px;font-size:11px;
+          cursor:pointer;font-family:'Rajdhani',sans-serif;letter-spacing:1px">EDIT</button>
+      </div>
+      <div class="trow">
+        <div class="tinfo">
+          <div class="flabel">AUTO-PAY (DANGEROUS)</div>
+          <p>Bot confirms payment automatically. OFF = you pay manually.</p>
+        </div>
+        <div class="tog" id="autoPayTog" onclick="toggleAutoPay()"><div class="tog-thumb"></div></div>
+      </div>
+    </div>
+
+    <div style="margin:8px 12px 0;display:flex;gap:8px">
+      <button onclick="saveAll()" style="flex:1;padding:12px;border-radius:11px;background:none;
+        border:1px solid var(--border2);color:var(--text2);font-family:'Rajdhani',sans-serif;
+        font-weight:600;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer">
+        💾 SAVE
+      </button>
+      <button onclick="clearAll()" style="padding:12px 16px;border-radius:11px;background:none;
+        border:1px solid rgba(239,68,68,.2);color:var(--red);font-family:'Rajdhani',sans-serif;
+        font-weight:600;font-size:11px;letter-spacing:1px;cursor:pointer">
+        CLEAR
+      </button>
+    </div>
+    <div style="height:8px"></div>
+  </div>
+
+  <!-- ══ SCHEDULE TAB ══ -->
+  <div class="page" id="tab-schedule">
+    <div class="sched-info">
+      <div style="font-size:20px;flex-shrink:0;margin-top:2px">🕙</div>
+      <div>
+        <h4>TATKAL AUTO-SCHEDULER</h4>
+        <p>Bot wakes <strong>9:59:50 AM IST D-1</strong>, logs in, fills all details, hits Book Now at exactly <strong>10:00:00 AM</strong> when quota opens. Uses all data from Book tab.</p>
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-hd"><span class="hd-dot"></span>SCHEDULE</div>
+      <div class="frow">
+        <span class="ficon">📅</span>
+        <div class="fwrap"><div class="flabel">JOURNEY DATE</div>
+          <input class="finput" type="date" id="schedDate" onchange="updateSched()"/></div>
+      </div>
+      <div class="frow">
+        <span class="ficon">⏰</span>
+        <div class="fwrap"><div class="flabel">BOT LAUNCHES</div>
+          <div id="launchTime" style="font-family:'DM Mono',monospace;font-size:13px;color:var(--accent)">— pick date</div>
+        </div>
+      </div>
+      <div class="frow">
+        <span class="ficon">🎯</span>
+        <div class="fwrap"><div class="flabel">TATKAL OPENS</div>
+          <div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--green)">10:00:00 AM IST (AC) · 11:00:00 AM (SL)</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="cdbox" id="cdbox" style="display:none">
+      <div class="cdlabel">COUNTDOWN TO TATKAL</div>
+      <div class="cddig" id="cddig">--:--:--</div>
+      <div class="cdsub" id="cdsub">Set date above</div>
+    </div>
+
+    <div id="schedJobInfo" style="display:none" class="sec">
+      <div class="sec-hd"><span class="hd-dot" style="background:var(--yellow);box-shadow:0 0 5px var(--yellow)"></span>SCHEDULED JOB</div>
+      <div class="frow">
+        <span class="ficon">✅</span>
+        <div class="fwrap"><div class="flabel">STATUS</div>
+          <div id="jobStatusText" style="font-family:'DM Mono',monospace;font-size:13px;color:var(--yellow)">Active</div>
+        </div>
+        <button onclick="cancelJob()" style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);
+          color:var(--red);border-radius:7px;padding:5px 10px;font-size:11px;cursor:pointer;
+          font-family:'Rajdhani',sans-serif;letter-spacing:1px">CANCEL</button>
+      </div>
+    </div>
+    <div style="height:8px"></div>
+  </div>
+
+  <!-- ══ LOGS TAB ══ -->
+  <div class="page" id="tab-logs">
+    <div class="logfeed" style="margin:12px 12px 0;max-height:none">
+      <div class="loghd">LIVE BOOKING LOG <div class="livdot"></div></div>
+      <div class="logscroll" id="logScroll" style="height:calc(100vh - 220px)">
+        <div class="logline"><span class="lt">--:--:--</span><span class="lm">Waiting...</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ HISTORY TAB ══ -->
+  <div class="page" id="tab-history">
+    <div id="histArea">
+      <div style="text-align:center;padding:48px 20px;color:var(--text3)">
+        <div style="font-size:40px;margin-bottom:12px">🎫</div>
+        <div style="font-family:'Rajdhani',sans-serif;font-size:14px;letter-spacing:1px">No bookings yet</div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- end scroll -->
+
+<!-- BOTTOM BAR -->
+<div class="botbar">
+  <button class="btn-sched" id="schedBtn" onclick="openSchedModal()">🕙 SCHEDULE</button>
+  <button class="btn-book" id="bookBtn" onclick="bookNow()"><span>⚡</span> BOOK NOW</button>
+</div>
+
+<!-- MODALS -->
+<div class="modal" id="schedModal">
+  <div class="msheet">
+    <div class="mhandle"></div>
+    <div class="mtitle">🕙 Confirm Auto-Schedule</div>
+    <div class="mbody">
+      <p>Bot will launch at <strong>9:59:50 AM IST</strong> on D-1 and book Tatkal the moment quota opens.</p>
+      <div class="mtime" id="mSchedTime">—</div>
+      <p style="font-size:11px;color:var(--yellow)">⚠️ Server runs 24/7 — your phone can be off. Auto-pay is <span id="mAutoState">OFF</span>.</p>
+      <button class="btn-ok" onclick="confirmSched()">✓ SCHEDULE</button>
+      <button class="btn-no" onclick="closeModals()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="upiModal">
+  <div class="msheet">
+    <div class="mhandle"></div>
+    <div class="mtitle">Edit UPI ID</div>
+    <div class="mbody">
+      <div class="frow" style="background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:14px">
+        <span class="ficon">💳</span>
+        <div class="fwrap"><div class="flabel">UPI ID</div>
+          <input class="finput" id="upiInput" placeholder="yourname@paytm" inputmode="email"/></div>
+      </div>
+      <button class="btn-ok" onclick="saveUpi()">Save</button>
+      <button class="btn-no" onclick="closeModals()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── STATE ─────────────────────────────────────────────────────────────────────
+const S = {
+  passengers: [],
+  cls: '3A',
+  autoPay: false,
+  upiId: '',
+  history: [],
+  sessionId: 'sess_' + Math.random().toString(36).slice(2,10),
+  jobId: null,
+  socket: null,
+};
+
+// ── SOCKET ────────────────────────────────────────────────────────────────────
+function initSocket() {
+  S.socket = io();
+  S.socket.emit('join', { sessionId: S.sessionId });
+  S.socket.on('log', line => appendLog(line.ts, line.msg, line.level));
+  S.socket.on('result', handleResult);
+  S.socket.on('joined', () => appendLog('--:--:--', 'Connected to server', 'ok'));
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+function init() {
+  load();
+  renderPax();
+  renderHistory();
+  startClock();
+  setDefaultDate();
+  initSocket();
+  if (S.passengers.length === 0) addPax();
+}
+
+function load() {
+  try {
+    const d = JSON.parse(localStorage.getItem('rf_v2') || '{}');
+    if (d.upiId) { S.upiId = d.upiId; document.getElementById('upiVal').textContent = d.upiId; }
+    if (d.irctcUser) document.getElementById('irctcUser').value = d.irctcUser;
+    if (d.irctcPass) document.getElementById('irctcPass').value = d.irctcPass;
+    if (d.from) document.getElementById('fromStation').value = d.from;
+    if (d.to) document.getElementById('toStation').value = d.to;
+    if (d.train) document.getElementById('trainNo').value = d.train;
+    if (d.cls) { S.cls = d.cls; document.querySelectorAll('.chip').forEach(c => c.classList.toggle('on', c.textContent === d.cls)); }
+    if (d.autoPay) { S.autoPay = d.autoPay; updateTogUI(); }
+    if (d.passengers) S.passengers = d.passengers;
+    if (d.history) S.history = d.history;
+  } catch(e){}
+}
+
+function saveAll() {
+  const d = {
+    upiId: S.upiId,
+    irctcUser: document.getElementById('irctcUser').value,
+    irctcPass: document.getElementById('irctcPass').value,
+    from: document.getElementById('fromStation').value,
+    to: document.getElementById('toStation').value,
+    train: document.getElementById('trainNo').value,
+    cls: S.cls,
+    autoPay: S.autoPay,
+    passengers: S.passengers,
+    history: S.history,
+  };
+  localStorage.setItem('rf_v2', JSON.stringify(d));
+  flash(event.target, '✓ SAVED', 'var(--green)');
+}
+
+function clearAll() {
+  if (!confirm('Clear all saved data?')) return;
+  localStorage.removeItem('rf_v2');
+  location.reload();
+}
+
+// ── CLOCK ─────────────────────────────────────────────────────────────────────
+function startClock() {
+  const tick = () => {
+    const ist = new Date(new Date().toLocaleString('en-US', {timeZone:'Asia/Kolkata'}));
+    document.getElementById('clk').textContent =
+      [ist.getHours(),ist.getMinutes(),ist.getSeconds()].map(n=>String(n).padStart(2,'0')).join(':');
+  };
+  tick(); setInterval(tick, 1000);
+}
+
+// ── DATE ──────────────────────────────────────────────────────────────────────
+function setDefaultDate() {
+  const ist = new Date(new Date().toLocaleString('en-US', {timeZone:'Asia/Kolkata'}));
+  ist.setDate(ist.getDate() + 2);
+  const v = ist.toISOString().split('T')[0];
+  document.getElementById('journeyDate').value = v;
+  document.getElementById('schedDate').value = v;
+  updateSched();
+}
+
+// ── TABS ──────────────────────────────────────────────────────────────────────
+function showTab(t) {
+  document.querySelectorAll('.tab').forEach((el,i) =>
+    el.classList.toggle('on', ['book','schedule','logs','history'][i] === t));
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('on'));
+  document.getElementById('tab-'+t).classList.add('on');
+}
+
+// ── STATION SWAP ──────────────────────────────────────────────────────────────
+function swap() {
+  const a = document.getElementById('fromStation'), b = document.getElementById('toStation');
+  [a.value, b.value] = [b.value, a.value];
+}
+
+// ── CLASS ─────────────────────────────────────────────────────────────────────
+function cls(el, c) {
+  document.querySelectorAll('.chip').forEach(x => x.classList.remove('on'));
+  el.classList.add('on'); S.cls = c;
+}
+
+// ── PASSENGERS ────────────────────────────────────────────────────────────────
+function addPax() {
+  S.passengers.push({name:'',age:'',gender:'Male',food:'V',berth:'NP'});
+  renderPax();
+}
+function remPax(i) { S.passengers.splice(i,1); renderPax(); }
+
+function renderPax() {
+  document.getElementById('paxArea').innerHTML = S.passengers.map((p,i) => `
+    <div class="pcard">
+      <div class="phd">
+        <div class="ptitle">PASSENGER ${i+1}</div>
+        ${i>0?`<div class="prem" onclick="remPax(${i})">✕</div>`:''}
+      </div>
+      <div class="frow">
+        <span class="ficon">👤</span>
+        <div class="fwrap"><div class="flabel">FULL NAME</div>
+          <input class="finput" placeholder="Name (as on ID)" value="${p.name}"
+            oninput="S.passengers[${i}].name=this.value"/></div>
+      </div>
+      <div class="pgrid">
+        <div class="frow"><div class="fwrap"><div class="flabel">AGE</div>
+          <input class="finput" type="number" placeholder="25" value="${p.age}" min="1" max="125"
+            inputmode="numeric" oninput="S.passengers[${i}].age=this.value"/></div></div>
+        <div class="frow"><div class="fwrap"><div class="flabel">GENDER</div>
+          <select class="finput" style="background:none" onchange="S.passengers[${i}].gender=this.value">
+            <option ${p.gender==='Male'?'selected':''}>Male</option>
+            <option ${p.gender==='Female'?'selected':''}>Female</option>
+            <option value="Transgender" ${p.gender==='Transgender'?'selected':''}>Other</option>
+          </select></div></div>
+        <div class="frow"><div class="fwrap"><div class="flabel">FOOD</div>
+          <select class="finput" style="background:none" onchange="S.passengers[${i}].food=this.value">
+            <option value="V" ${p.food==='V'?'selected':''}>🥦 Veg</option>
+            <option value="NV" ${p.food==='NV'?'selected':''}>🍗 Non-Veg</option>
+            <option value="N" ${p.food==='N'?'selected':''}>None</option>
+          </select></div></div>
+        <div class="frow"><div class="fwrap"><div class="flabel">BERTH PREF</div>
+          <select class="finput" style="background:none" onchange="S.passengers[${i}].berth=this.value">
+            <option value="NP" ${p.berth==='NP'?'selected':''}>No Pref</option>
+            <option value="LB" ${p.berth==='LB'?'selected':''}>Lower</option>
+            <option value="MB" ${p.berth==='MB'?'selected':''}>Middle</option>
+            <option value="UB" ${p.berth==='UB'?'selected':''}>Upper</option>
+            <option value="SL" ${p.berth==='SL'?'selected':''}>Side Lr</option>
+            <option value="SU" ${p.berth==='SU'?'selected':''}>Side Up</option>
+          </select></div></div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ── UPI ───────────────────────────────────────────────────────────────────────
+function openUpiModal() { document.getElementById('upiInput').value=S.upiId; openModal('upiModal'); }
+function saveUpi() {
+  const v = document.getElementById('upiInput').value.trim();
+  if (!v||!v.includes('@')) { alert('Enter valid UPI ID e.g. name@paytm'); return; }
+  S.upiId = v; document.getElementById('upiVal').textContent = v;
+  closeModals(); saveAll();
+}
+
+// ── AUTO PAY ──────────────────────────────────────────────────────────────────
+function toggleAutoPay() { S.autoPay=!S.autoPay; updateTogUI(); }
+function updateTogUI() { document.getElementById('autoPayTog').classList.toggle('on',S.autoPay); }
+
+// ── VALIDATE ──────────────────────────────────────────────────────────────────
+function validate() {
+  const checks = [
+    [!document.getElementById('fromStation').value.trim(), 'From station required'],
+    [!document.getElementById('toStation').value.trim(), 'To station required'],
+    [!document.getElementById('trainNo').value.trim(), 'Train number required'],
+    [!document.getElementById('journeyDate').value, 'Journey date required'],
+    [!document.getElementById('irctcUser').value.trim(), 'IRCTC username required'],
+    [!document.getElementById('irctcPass').value.trim(), 'IRCTC password required'],
+    [!S.upiId, 'UPI ID required — tap EDIT'],
+    [S.passengers.some(p=>!p.name.trim()), 'All passenger names required'],
+    [S.passengers.some(p=>!p.age), 'All passenger ages required'],
+  ];
+  for (const [cond, msg] of checks) if (cond) { alert(msg); return false; }
+  return true;
+}
+
+function buildPayload() {
+  return {
+    sessionId: S.sessionId,
+    username: document.getElementById('irctcUser').value,
+    password: document.getElementById('irctcPass').value,
+    upiId: S.upiId,
+    fromStation: document.getElementById('fromStation').value,
+    toStation: document.getElementById('toStation').value,
+    trainNo: document.getElementById('trainNo').value,
+    coachClass: S.cls,
+    journeyDate: document.getElementById('journeyDate').value,
+    autoPay: S.autoPay,
+    passengers: S.passengers,
+  };
+}
+
+// ── BOOK NOW ──────────────────────────────────────────────────────────────────
+async function bookNow() {
+  if (!validate()) return;
+  setStatus('running', 'Booking in progress...');
+  const btn = document.getElementById('bookBtn');
+  btn.disabled=true; btn.innerHTML='⏳ RUNNING...';
+  showTab('logs');
+
+  try {
+    const res = await fetch('/api/book', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(buildPayload())
+    });
+    const data = await res.json();
+    if (data.status !== 'started') throw new Error(data.message||'Failed to start');
+    appendLog(ist(),'Booking job started on server','ok');
+  } catch(e) {
+    setStatus('error','Failed: '+e.message);
+    appendLog(ist(),'Error: '+e.message,'error');
+    btn.disabled=false; btn.innerHTML='<span>⚡</span> BOOK NOW';
+  }
+}
+
+// ── SCHEDULE ──────────────────────────────────────────────────────────────────
+function updateSched() {
+  const val = document.getElementById('schedDate').value;
+  if (!val) return;
+  const jd = new Date(val+'T00:00:00');
+  const d1 = new Date(jd); d1.setDate(d1.getDate()-1);
+  const opts = {day:'2-digit',month:'short',year:'numeric'};
+  document.getElementById('launchTime').textContent =
+    d1.toLocaleDateString('en-IN',opts)+' at 09:59:50 AM';
+  document.getElementById('cdbox').style.display='block';
+  startCountdown(jd);
+}
+
+let cdTimer=null;
+function startCountdown(jd) {
+  if(cdTimer) clearInterval(cdTimer);
+  function tick(){
+    const now = new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Kolkata'}));
+    const target = new Date(jd); target.setDate(target.getDate()-1); target.setHours(10,0,0,0);
+    const diff = target-now;
+    if(diff<=0){document.getElementById('cddig').textContent='🟢 OPEN NOW';return;}
+    const h=Math.floor(diff/3600000),m=Math.floor((diff%3600000)/60000),s=Math.floor((diff%60000)/1000);
+    document.getElementById('cddig').textContent=[h,m,s].map(n=>String(n).padStart(2,'0')).join(':');
+    const days=Math.floor(h/24);
+    document.getElementById('cdsub').textContent = days>0
+      ? `${days}d ${h%24}h ${m}m until Tatkal opens`
+      : `${h}h ${m}m ${s}s until Tatkal opens`;
+  }
+  tick(); cdTimer=setInterval(tick,1000);
+}
+
+function openSchedModal() {
+  if (!validate()) return;
+  const val = document.getElementById('schedDate').value || document.getElementById('journeyDate').value;
+  if (!val) { alert('Set journey date first'); return; }
+  const jd = new Date(val+'T00:00:00');
+  const d1 = new Date(jd); d1.setDate(d1.getDate()-1);
+  const opts = {weekday:'short',day:'2-digit',month:'short',year:'numeric'};
+  document.getElementById('mSchedTime').textContent =
+    d1.toLocaleDateString('en-IN',opts)+' · 09:59:50 AM IST';
+  document.getElementById('mAutoState').textContent = S.autoPay ? 'ON ⚠️' : 'OFF ✓';
+  openModal('schedModal');
+}
+
+async function confirmSched() {
+  closeModals();
+  const payload = buildPayload();
+  payload.journeyDate = document.getElementById('schedDate').value || payload.journeyDate;
+  setStatus('sched','Job scheduled — waiting for Tatkal');
+
+  try {
+    const res = await fetch('/api/schedule', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (data.status === 'scheduled') {
+      S.jobId = data.jobId;
+      document.getElementById('schedJobInfo').style.display='block';
+      document.getElementById('jobStatusText').textContent = `Active · Launches ${data.launchAt}`;
+      document.getElementById('schedBtn').classList.add('active-job');
+      document.getElementById('schedBtn').textContent = '🟡 SCHEDULED';
+      appendLog(ist(), `Job scheduled — launches ${data.launchAt}`, 'ok');
+      showTab('schedule');
+    } else throw new Error(data.message);
+  } catch(e) {
+    setStatus('error','Schedule failed: '+e.message);
+    appendLog(ist(),'Schedule failed: '+e.message,'error');
+  }
+}
+
+async function cancelJob() {
+  if (!S.jobId) return;
+  await fetch('/api/cancel',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({sessionId:S.sessionId})});
+  S.jobId=null;
+  document.getElementById('schedJobInfo').style.display='none';
+  document.getElementById('schedBtn').classList.remove('active-job');
+  document.getElementById('schedBtn').textContent='🕙 SCHEDULE';
+  setStatus('idle','Job cancelled');
+  appendLog(ist(),'Scheduled job cancelled','warn');
+}
+
+// ── RESULT ────────────────────────────────────────────────────────────────────
+function handleResult(r) {
+  const btn = document.getElementById('bookBtn');
+  btn.disabled=false; btn.innerHTML='<span>⚡</span> BOOK NOW';
+
+  const type = r.success ? 'ok' : (r.payment_charged ? 'warn' : 'fail');
+  setStatus(r.success?'idle':'error', r.success?'Booking complete!':r.message);
+
+  // Add to history
+  S.history.unshift({
+    from: document.getElementById('fromStation').value,
+    to: document.getElementById('toStation').value,
+    train: document.getElementById('trainNo').value,
+    cls: S.cls,
+    date: document.getElementById('journeyDate').value,
+    pnr: r.pnr,
+    success: r.success,
+    message: r.message,
+    ts: r.timestamp,
+  });
+  if(S.history.length>30) S.history.pop();
+  saveAll();
+  renderHistory();
+
+  // Result card on book tab
+  const area = document.getElementById('resultArea');
+  area.innerHTML = `
+    <div class="result-card ${type}" style="margin-top:12px">
+      <div class="result-title">${r.success?'✅ BOOKING CONFIRMED':r.payment_charged?'⚠️ CHECK IRCTC NOW':'❌ BOOKING FAILED'}</div>
+      ${r.pnr?`<div class="result-pnr">${r.pnr}</div>`:''}
+      <div class="result-msg">${r.message}</div>
+      ${r.payment_charged&&!r.success?'<div style="margin-top:8px;font-size:11px;color:var(--yellow)">Payment may have been charged — open IRCTC app immediately</div>':''}
+    </div>`;
+  showTab('book');
+}
+
+// ── LOGS ──────────────────────────────────────────────────────────────────────
+function appendLog(ts, msg, level='') {
+  const sc = document.getElementById('logScroll');
+  const el = document.createElement('div');
+  el.className = `logline ${level}`;
+  el.innerHTML = `<span class="lt">${ts}</span><span class="lm">${msg}</span>`;
+  // Remove placeholder
+  const ph = sc.querySelector('.logline:first-child');
+  if(ph&&ph.querySelector('.lt').textContent==='--:--:--') ph.remove();
+  sc.appendChild(el);
+  sc.scrollTop=sc.scrollHeight;
+}
+
+// ── HISTORY ───────────────────────────────────────────────────────────────────
+function renderHistory() {
+  const a = document.getElementById('histArea');
+  if(!S.history.length) {
+    a.innerHTML=`<div style="text-align:center;padding:48px 20px;color:var(--text3)">
+      <div style="font-size:40px;margin-bottom:12px">🎫</div>
+      <div style="font-family:'Rajdhani',sans-serif;font-size:14px;letter-spacing:1px">No bookings yet</div>
+    </div>`; return;
+  }
+  a.innerHTML=S.history.map(h=>`
+    <div class="hcard">
+      <div class="hcard-top">
+        <div class="hroute">${h.from}→${h.to}</div>
+        <div class="hstatus ${h.success?'ok':'fail'}">${h.success?'✓ DONE':'✗ FAILED'}</div>
+      </div>
+      <div class="hcard-body">
+        Train ${h.train} · ${h.cls} · ${h.date}<br>
+        ${h.pnr?'PNR: '+h.pnr+'<br>':''}
+        ${h.message}<br>
+        <span style="color:var(--text3)">${h.ts}</span>
+      </div>
+    </div>`).join('');
+}
+
+// ── STATUS ────────────────────────────────────────────────────────────────────
+function setStatus(type, msg) {
+  const dot=document.getElementById('statusDot'), txt=document.getElementById('statusText');
+  dot.className='status-dot';
+  if(type==='running') dot.classList.add('dot-running');
+  else if(type==='sched') dot.classList.add('dot-sched');
+  else if(type==='error') dot.classList.add('dot-error');
+  else dot.classList.add('dot-idle');
+  txt.textContent=msg;
+}
+
+// ── MODAL ─────────────────────────────────────────────────────────────────────
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModals() { document.querySelectorAll('.modal').forEach(m=>m.classList.remove('open')); }
+document.querySelectorAll('.modal').forEach(m=>m.addEventListener('click',function(e){if(e.target===this)closeModals();}));
+
+// ── UTILS ─────────────────────────────────────────────────────────────────────
+function ist() {
+  return new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Kolkata'}))
+    .toTimeString().slice(0,8);
+}
+function flash(el,txt,col){const o=el.textContent;el.textContent=txt;el.style.color=col;
+  setTimeout(()=>{el.textContent=o;el.style.color=''},1500);}
+
+init();
+</script>
+</body>
+</html>
