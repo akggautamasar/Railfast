@@ -127,15 +127,25 @@ class IRCTCBot:
                 "--disable-extensions",
                 "--no-first-run",
                 "--disable-blink-features=AutomationControlled",
+                "--disable-http2",                    # IRCTC blocks HTTP/2 from headless
+                "--disable-web-security",
+                "--allow-running-insecure-content",
+                "--ignore-certificate-errors",
+                "--ignore-ssl-errors",
             ]
         )
         ctx = self.browser.new_context(
-            viewport={"width": 1280, "height": 800},
+            viewport={"width": 1366, "height": 768},
             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
             locale="en-IN",
+            extra_http_headers={
+                "Accept-Language": "en-IN,en;q=0.9",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+            },
+            ignore_https_errors=True,
         )
         self.page = ctx.new_page()
-        self.page.set_default_timeout(20000)
+        self.page.set_default_timeout(30000)
         self.log("Browser started ✓")
 
     def stop(self):
@@ -188,7 +198,8 @@ class IRCTCBot:
 
     def login(self):
         self.log("Opening IRCTC...")
-        self.page.goto("https://www.irctc.co.in/nget/train-search", wait_until="networkidle")
+        self.page.goto("https://www.irctc.co.in/nget/train-search", wait_until="domcontentloaded", timeout=30000)
+        self.page.wait_for_timeout(3000)  # let Angular bootstrap
         self.page.click("text=' LOGIN '")
         self.page.wait_for_timeout(2000)
         self.page.fill("input[placeholder='User Name']", self.req.username)
