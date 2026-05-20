@@ -117,10 +117,15 @@ class IRCTCBot:
         opts.add_argument("--disable-gpu")
         opts.add_argument("--window-size=1280,900")
         opts.add_argument("--disable-blink-features=AutomationControlled")
+        opts.add_argument("--remote-debugging-port=9222")
+        opts.add_argument("--single-process")
         opts.add_experimental_option("excludeSwitches", ["enable-automation"])
         opts.add_experimental_option("useAutomationExtension", False)
-        # Use chromedriver from PATH (Render installs via apt)
-        self.driver = webdriver.Chrome(options=opts)
+        # Explicit binary paths for Docker on Render
+        opts.binary_location = "/usr/bin/google-chrome"
+        from selenium.webdriver.chrome.service import Service
+        service = Service(executable_path="/usr/local/bin/chromedriver")
+        self.driver = webdriver.Chrome(service=service, options=opts)
         self.driver.execute_script(
             "Object.defineProperty(navigator,'webdriver',{get:()=>undefined})"
         )
