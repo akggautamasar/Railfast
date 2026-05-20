@@ -111,26 +111,55 @@ class IRCTCBot:
 
     def start(self):
         opts = Options()
+        # Core headless flags
         opts.add_argument("--headless=new")
         opts.add_argument("--no-sandbox")
         opts.add_argument("--disable-dev-shm-usage")
         opts.add_argument("--disable-gpu")
-        opts.add_argument("--window-size=1280,900")
+        opts.add_argument("--window-size=1366,768")
+        # Crash prevention in Docker/container environments
+        opts.add_argument("--disable-setuid-sandbox")
+        opts.add_argument("--disable-software-rasterizer")
+        opts.add_argument("--disable-extensions")
+        opts.add_argument("--disable-background-networking")
+        opts.add_argument("--disable-default-apps")
+        opts.add_argument("--disable-sync")
+        opts.add_argument("--disable-translate")
+        opts.add_argument("--hide-scrollbars")
+        opts.add_argument("--mute-audio")
+        opts.add_argument("--no-first-run")
+        opts.add_argument("--safebrowsing-disable-auto-update")
+        opts.add_argument("--ignore-certificate-errors")
         opts.add_argument("--disable-blink-features=AutomationControlled")
-        opts.add_argument("--remote-debugging-port=9222")
-        opts.add_argument("--single-process")
+        # Use /tmp for all disk IO (writable in Render containers)
+        opts.add_argument("--disk-cache-dir=/tmp/chrome-cache")
+        opts.add_argument("--user-data-dir=/tmp/chrome-userdata")
+        opts.add_argument("--crash-dumps-dir=/tmp/chrome-crashes")
+        # Memory limits for 512MB Render starter
+        opts.add_argument("--memory-pressure-off")
+        opts.add_argument("--max_old_space_size=256")
         opts.add_experimental_option("excludeSwitches", ["enable-automation"])
         opts.add_experimental_option("useAutomationExtension", False)
-        # Explicit binary paths for Docker on Render
+        # Explicit paths installed by Dockerfile
         opts.binary_location = "/usr/bin/google-chrome"
         from selenium.webdriver.chrome.service import Service
-        service = Service(executable_path="/usr/local/bin/chromedriver")
+        import subprocess, os
+        # Log Chrome version for debugging
+        try:
+            ver = subprocess.check_output(["google-chrome", "--version"]).decode().strip()
+            self._log(f"Chrome: {ver}")
+        except Exception:
+            pass
+        service = Service(
+            executable_path="/usr/local/bin/chromedriver",
+            log_output="/tmp/chromedriver.log"
+        )
         self.driver = webdriver.Chrome(service=service, options=opts)
         self.driver.execute_script(
             "Object.defineProperty(navigator,'webdriver',{get:()=>undefined})"
         )
-        self.wait = WebDriverWait(self.driver, 15)
-        self._log("Chrome launched (headless)")
+        self.wait = WebDriverWait(self.driver, 20)
+        self._log("Chrome launched (headless, containerized)")
 
     def stop(self):
         if self.driver:
