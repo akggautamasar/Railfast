@@ -198,7 +198,21 @@ class IRCTCBot:
 
     def login(self):
         self.log("Opening IRCTC...")
-        self.page.goto("https://www.irctc.co.in/nget/train-search", wait_until="domcontentloaded", timeout=30000)
+        # Retry goto up to 3 times — IRCTC sometimes drops first connection from new IPs
+        for attempt in range(1, 4):
+            try:
+                self.log(f"Loading IRCTC (attempt {attempt}/3)...")
+                self.page.goto(
+                    "https://www.irctc.co.in/nget/train-search",
+                    wait_until="domcontentloaded",
+                    timeout=60000
+                )
+                break
+            except Exception as e:
+                self.log(f"Page load attempt {attempt} failed: {e}", "warn")
+                if attempt == 3:
+                    raise RuntimeError(f"IRCTC unreachable after 3 attempts. Try again in a few minutes.")
+                self.page.wait_for_timeout(5000)
         self.page.wait_for_timeout(3000)  # let Angular bootstrap
         self.page.click("text=' LOGIN '")
         self.page.wait_for_timeout(2000)
