@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: railfast-tatkal
+    env: python
+    region: singapore   # closest to India for low latency to IRCTC
+    plan: starter        # $7/mo — always-on (free tier sleeps!)
+    buildCommand: bash build.sh
+    startCommand: gunicorn --worker-class eventlet -w 1 --timeout 300 --bind 0.0.0.0:$PORT app:app
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: DISPLAY
+        value: ":99"
