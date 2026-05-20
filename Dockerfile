@@ -1,22 +1,17 @@
-FROM python:3.11-slim
+# Official Playwright image - Chrome + all deps pre-installed, no apt needed
+FROM mcr.microsoft.com/playwright/python:v1.44.0-jammy
 
 ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    DEBIAN_FRONTEND=noninteractive
+    PYTHONDONTWRITEBYTECODE=1
 
-# System deps for Playwright + Tesseract
+# Tesseract for captcha OCR
 RUN apt-get update && apt-get install -y --no-install-recommends \
     tesseract-ocr \
-    wget curl ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 COPY requirements.txt .
-
-# Install Python deps + Playwright browsers in one layer
-RUN pip install --no-cache-dir -r requirements.txt \
-    && playwright install chromium \
-    && playwright install-deps chromium
+RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
